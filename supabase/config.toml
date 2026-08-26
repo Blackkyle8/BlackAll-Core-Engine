@@ -1,0 +1,20 @@
+# Supabase CLI 설정. 프로젝트 생성 후 project_id 를 채운다.
+project_id = ""
+
+[api]
+enabled = true
+port = 54321
+# training / reference / ops 는 PostgREST 에 노출하지 않는다.
+# 게이트웨이는 gateway_writer 롤로 Postgres 에 직접 접속한다 (사양서 §2-1).
+schemas = ["public"]
+extra_search_path = ["public"]
+max_rows = 1000
+
+[db]
+port = 54322
+major_version = 15
+
+[functions.gateway]
+# 게이트웨이는 자체 API 키(training.api_keys)로 인증한다.
+# Supabase JWT 검증을 켜면 고객이 우리 키 대신 Supabase 토큰을 들고 와야 한다.
+verify_jwt = false

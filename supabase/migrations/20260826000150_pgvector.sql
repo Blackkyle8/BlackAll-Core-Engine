@@ -11,4 +11,6 @@
 -- 3주차 산출물이다. 여기서는 확장 설치만 한다.
 -- =============================================================================
 
+-- Supabase 에는 extensions 스키마가 이미 있다. 순정 PostgreSQL(CI)에서는 만들어 준다.
+create schema if not exists extensions;
 create extension if not exists vector with schema extensions;

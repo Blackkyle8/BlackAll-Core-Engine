@@ -1,0 +1,84 @@
+name: verify
+
+# 사양서 §10 — "각 지표는 자동 산출되어야 하며, 사람이 매번 확인하는 구조면 실패로 간주한다."
+# 1주차 사망 조건(학습 롤의 reference 격리)을 커밋마다 재확인한다.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  gateway:
+    name: 게이트웨이 (deno)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - run: deno fmt --check supabase/functions tests
+      - run: deno lint supabase/functions tests
+      - run: deno check supabase/functions/gateway/index.ts
+      - run: deno test tests/
+
+  database:
+    name: 스키마 격리 · 오염 차단 (postgres)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        # pgvector 포함 이미지. 0150 마이그레이션이 SKIP 되지 않아야 한다.
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: blackall
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      PGPASSWORD: postgres
+      ADMIN_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/blackall
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 마이그레이션 적용
+        run: DATABASE_URL="$ADMIN_DATABASE_URL" ./scripts/run-migrations.sh
+
+      - name: pgvector 가 실제로 설치되었는지 확인
+        run: |
+          psql "$ADMIN_DATABASE_URL" -tAc \
+            "select count(*) from pg_extension where extname='vector'" | grep -qx 1
+
+      - name: 롤 비밀번호 설정
+        run: |
+          psql "$ADMIN_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -v gw_pw=ci_gw -v tp_pw=ci_tp -v an_pw=ci_an \
+            -f scripts/set-role-passwords.sql
+
+      - name: '§10 1주차 — 학습 롤의 reference 격리'
+        run: |
+          psql "postgres://training_pipeline:ci_tp@127.0.0.1:5432/blackall" \
+            -v ON_ERROR_STOP=1 -f scripts/verify-isolation.sql
+
+      - name: '§2-1 — 오염 차단 트리거'
+        run: |
+          psql "postgres://gateway_writer:ci_gw@127.0.0.1:5432/blackall" \
+            -v ON_ERROR_STOP=1 -f scripts/verify-contamination-guard.sql
+
+      - name: '§2-2 / §5-3 — 모델·라우팅 정책'
+        run: psql "$ADMIN_DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/verify-model-policy.sql
+
+      - name: 지표 뷰가 실제로 조회되는지 확인
+        run: |
+          for v in metric_capture_integrity metric_task_type_convergence \
+                   metric_task_type_distribution metric_self_traffic_share \
+                   metric_daily_cost metric_monthly_cost metric_unverified_models; do
+            psql "$ADMIN_DATABASE_URL" -v ON_ERROR_STOP=1 -c "select * from ops.$v limit 1" >/dev/null
+            echo "ok ops.$v"
+          done
