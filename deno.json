@@ -1,0 +1,20 @@
+{
+  "tasks": {
+    "check": "deno check supabase/functions/gateway/index.ts supabase/functions/_shared/*.ts",
+    "test": "deno test tests/",
+    "fmt": "deno fmt supabase/functions tests",
+    "lint": "deno lint supabase/functions tests"
+  },
+  "fmt": {
+    "lineWidth": 100,
+    "indentWidth": 2,
+    "semiColons": true,
+    "singleQuote": false
+  },
+  "lint": {
+    "rules": {
+      "tags": ["recommended"]
+    }
+  },
+  "exclude": ["node_modules", "supabase/.temp"]
+}

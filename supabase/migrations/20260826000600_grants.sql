@@ -130,5 +130,5 @@ $$;
 --    Supabase 의 service_role 키는 RLS 와 대부분의 권한 검사를 우회한다.
 --    학습 파이프라인은 절대로 service_role 키를 사용해서는 안 된다.
 --    학습 파이프라인은 training_pipeline 롤의 직접 Postgres 연결 문자열만 사용한다.
---    → docs/02-week1-runbook.md
+--    → docs/02-runbook.md
 -- ---------------------------------------------------------------------------
