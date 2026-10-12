@@ -7,9 +7,17 @@ on:
   push:
     branches: ["**"]
   pull_request:
+    types: [opened, synchronize, reopened, closed]
+
+# A newer push cancels the older run, and merging or closing a pull request
+# cancels its run: the `closed` event joins the same group and runs no job.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   gateway:
+    if: github.event.action != 'closed'
     name: 게이트웨이 (deno)
     runs-on: ubuntu-latest
     steps:
@@ -23,6 +31,7 @@ jobs:
       - run: deno test tests/
 
   database:
+    if: github.event.action != 'closed'
     name: 스키마 격리 · 오염 차단 (postgres)
     runs-on: ubuntu-latest
 
